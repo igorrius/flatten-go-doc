@@ -1,6 +1,6 @@
 module github.com/igorrius/flatten-go-doc
 
-go 1.25.5
+go 1.25
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
