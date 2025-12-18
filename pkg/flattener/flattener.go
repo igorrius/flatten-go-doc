@@ -8,6 +8,7 @@ import (
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly/v2"
 )
 
@@ -53,6 +54,24 @@ func (f *Flattener) Flatten(rootURL string) ([]PageResult, error) {
 
 	// Prepare the Markdown converter
 	converter := md.NewConverter("", true, nil)
+	converter.AddRules(
+		md.Rule{
+			Filter: []string{"details"},
+			Replacement: func(content string, selec *goquery.Selection, options *md.Options) *string {
+				// Unwrap details, just return content
+				return &content
+			},
+		},
+		md.Rule{
+			Filter: []string{"summary"},
+			Replacement: func(content string, selec *goquery.Selection, options *md.Options) *string {
+				// Make summary a header
+				text := strings.TrimSpace(content)
+				newContent := fmt.Sprintf("\n#### %s\n\n", text)
+				return &newContent
+			},
+		},
+	)
 
 	// Safe storage for results
 	var results []PageResult
@@ -80,12 +99,13 @@ func (f *Flattener) Flatten(rootURL string) ([]PageResult, error) {
 		docURL := e.Request.URL.String()
 		
 		// Selectors updated to match pkg.go.dev structure
-		selection := e.DOM.Find(".UnitReadme, .Documentation")
+		selection := e.DOM.Find(".UnitReadme, .Documentation-content")
 
 		// Remove noise
 		selection.Find(".Documentation-index").Remove()
 		selection.Find("script").Remove()
 		selection.Find("style").Remove()
+		selection.Find(".Documentation-exampleButtonsContainer").Remove()
 
 		markdown := converter.Convert(selection)
 
@@ -101,7 +121,7 @@ func (f *Flattener) Flatten(rootURL string) ([]PageResult, error) {
 	})
 
 	// 2. Handle Subdirectories (Children links)
-	c.OnHTML("div.UnitDirectories table tbody tr td a", func(e *colly.HTMLElement) {
+	c.OnHTML("div.UnitDirectories table tr td a", func(e *colly.HTMLElement) {
 		link := e.Attr("href")
 		absoluteURL := e.Request.AbsoluteURL(link)
 

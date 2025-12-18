@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
-	"flatten-go-doc/pkg/flattener"
+	"github.com/igorrius/flatten-go-doc/pkg/flattener"
 )
 
 func main() {
@@ -31,6 +32,9 @@ func main() {
 	outFile := "documentation.md"
 	if len(args) >= 2 {
 		outFile = args[1]
+		if !strings.HasSuffix(strings.ToLower(outFile), ".md") {
+			outFile += ".md"
+		}
 	}
 
 	fmt.Printf("Starting scraping for: %s\n", url)
