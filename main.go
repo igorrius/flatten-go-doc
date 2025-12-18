@@ -5,129 +5,73 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sort"
 	"strings"
-	"sync"
-	"time"
 
-	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/gocolly/colly/v2"
+	"github.com/igorrius/flatten-go-doc/pkg/flattener"
 )
 
-type PageResult struct {
-	URL     string
-	Content string
-}
-
 func main() {
-	urlFlag := flag.String("url", "", "The URL of the Go package documentation (e.g., https://pkg.go.dev/github.com/cinar/indicator/v2)")
-	outFlag := flag.String("out", "documentation.md", "Output markdown file path")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] <url> [output-file]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Arguments:\n")
+		fmt.Fprintf(os.Stderr, "  <url>          The URL of the Go package documentation (e.g., https://pkg.go.dev/github.com/cinar/indicator/v2)\n")
+		fmt.Fprintf(os.Stderr, "  [output-file]  Output markdown file path (default: documentation.md)\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
-	if *urlFlag == "" {
-		log.Fatal("Please provide a URL using the -url flag")
+	args := flag.Args()
+	if len(args) < 1 {
+		fmt.Println("Error: Please provide a URL as the first argument.")
+		flag.Usage()
+		os.Exit(1)
 	}
 
-	rootURL := strings.TrimSuffix(*urlFlag, "/")
-	
-	// Prepare the Markdown converter
-	converter := md.NewConverter("", true, nil)
-
-	// Safe storage for results
-	var results []PageResult
-	var mu sync.Mutex
-
-	// Initialize Colly
-	c := colly.NewCollector(
-		colly.AllowedDomains("pkg.go.dev"),
-		colly.UserAgent("Mozilla/5.0 (compatible; GeminiBot/1.0; +http://gemini.google.com)"),
-		colly.Async(true),
-	)
-
-	// Limit parallelism to be polite
-	c.Limit(&colly.LimitRule{
-		DomainGlob:  "*",
-		Parallelism: 2,
-		RandomDelay: 500 * time.Millisecond,
-	})
-
-	// 1. Handle Documentation Content
-	c.OnHTML("main", func(e *colly.HTMLElement) {
-		docURL := e.Request.URL.String()
-		fmt.Printf("Scraping: %s\n", docURL)
-
-		// Create a clean DOM for extraction
-		// We mainly want the Readme and the Documentation section
-		// Selectors updated to match current pkg.go.dev structure (divs mostly)
-		selection := e.DOM.Find(".UnitReadme, .Documentation")
-		
-		// Remove noise
-		selection.Find(".Documentation-index").Remove() // Remove the index links, just keep content
-		selection.Find("script").Remove()
-		selection.Find("style").Remove()
-
-		markdown := converter.Convert(selection)
-
-		// Add a header for the file
-		header := fmt.Sprintf("# Package: %s\nInput URL: %s\n\n", docURL, docURL)
-		
-		mu.Lock()
-		results = append(results, PageResult{
-			URL:     docURL,
-			Content: header + markdown,
-		})
-		mu.Unlock()
-	})
-
-	// 2. Handle Subdirectories (Children links)
-	// The selector for the directory list in pkg.go.dev
-	// Usually found in a "Directories" section. 
-	// The markup is often a table within `div.UnitDirectories`.
-	c.OnHTML("div.UnitDirectories table tbody tr td a", func(e *colly.HTMLElement) {
-		link := e.Attr("href")
-		// pkg.go.dev links are often relative like "/github.com/..."
-		absoluteURL := e.Request.AbsoluteURL(link)
-
-		// Only visit if it is a child of the root URL (or the module path)
-		// and hasn't been visited (Colly handles visited check if configured, but let's be explicit about scope)
-		if strings.HasPrefix(absoluteURL, rootURL) {
-			// e.Request.Visit(absoluteURL) -> For Async, we use c.Visit, but inside OnHTML we should use e.Request.Visit 
-			// However, in Async mode, it's safer to just queue it.
-			e.Request.Visit(link)
+	url := args[0]
+	outFile := "documentation.md"
+	if len(args) >= 2 {
+		outFile = args[1]
+		if !strings.HasSuffix(strings.ToLower(outFile), ".md") {
+			outFile += ".md"
 		}
-	})
-
-	// Start the scraping
-	err := c.Visit(rootURL)
-	if err != nil {
-		log.Fatal(err)
 	}
 
-	// Wait for all requests to finish
-	c.Wait()
+	fmt.Printf("Starting scraping for: %s\n", url)
 
-	// Sort results by URL length (shortest first -> root) or alphabetically
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].URL < results[j].URL
-	})
+	// Configure the flattener
+	config := flattener.DefaultConfig()
+	// You could expose config options via flags here (e.g., parallelism) if desired.
+
+	f := flattener.New(config)
+	results, err := f.Flatten(url)
+	if err != nil {
+		log.Fatalf("Error flattening documentation: %v", err)
+	}
+
+	if len(results) == 0 {
+		fmt.Println("Warning: No documentation found.")
+		return
+	}
 
 	// Write to file
-	f, err := os.Create(*outFlag)
+	file, err := os.Create(outFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error creating output file: %v", err)
 	}
-	defer f.Close()
+	defer file.Close()
 
 	for _, res := range results {
-		_, err := f.WriteString(res.Content)
+		fmt.Printf("Writing: %s\n", res.URL)
+		_, err := file.WriteString(res.Content)
 		if err != nil {
-			log.Printf("Error writing content: %v", err)
+			log.Printf("Error writing content for %s: %v", res.URL, err)
 		}
-		_, err = f.WriteString("\n\n---\n\n") // Separator
+		_, err = file.WriteString("\n\n---\n\n") // Separator
 		if err != nil {
 			log.Printf("Error writing separator: %v", err)
 		}
 	}
 
-	fmt.Printf("Successfully saved documentation to %s\n", *outFlag)
+	fmt.Printf("\nSuccessfully saved documentation to %s\n", outFile)
 }
