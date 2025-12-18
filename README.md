@@ -5,11 +5,12 @@
 ## Features
 
 -   **GitHub URL Support**: Accepts GitHub repository URLs directly (e.g., `https://github.com/user/repo`) and resolves them to `pkg.go.dev`.
--   **Smart Defaults**: Automatically generates a sanitized output filename from the package name if not provided.
+-   **Source File Downloading**: Automatically identifies and downloads raw Go source files linked in the documentation, appending them to the output for full context.
+-   **Retry Logic**: Robust scraping with automatic retries and exponential backoff for transient network issues.
 -   **Recursive Scraping**: Automatically finds and scrapes sub-packages.
 -   **Markdown Conversion**: Converts documentation and READMEs into clean Markdown.
 -   **Sorted Output**: Organizes documentation alphabetically by package URL.
--   **Library First**: Built as a reusable Go library with a CLI wrapper.
+-   **SOLID Architecture**: Refactored into modular components (Scraper, Converter, Source Handler) for better maintainability and extensibility.
 
 ## Installation
 
@@ -74,6 +75,14 @@ func main() {
     // ... handle results
 }
 ```
+
+## Tip: Using with NotebookLM
+
+`flatten-go-doc` is an excellent companion for Google **NotebookLM**. By consolidating documentation and source code into a single Markdown file, you can:
+
+1.  **Full Library Context**: Upload the generated `.md` file as a source in NotebookLM.
+2.  **AI-Powered Guidance**: Ask NotebookLM to "explain how to use this library based on the source code" or "create a tutorial for [specific feature]".
+3.  **Code Synthesis**: Since the tool includes the actual `.go` source files, NotebookLM can reason about the implementation details that aren't always visible in the standard documentation, helping you write more accurate and idiomatic code.
 
 ## License
 
