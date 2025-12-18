@@ -33,15 +33,17 @@ go install github.com/igorrius/flatten-go-doc@latest
 You can run the tool directly using `go run`:
 
 ```bash
-go run . <PKG_GO_DEV_URL> [OUTPUT_FILE]
+go run . <PKG_GO_DEV_URL | GITHUB_URL> [OUTPUT_FILE]
 ```
 
 **Example:**
 ```bash
 go run . https://pkg.go.dev/github.com/cinar/indicator/v2
+# Or using a GitHub URL:
+go run . https://github.com/cinar/indicator
 ```
-*   **&lt;PKG_GO_DEV_URL&gt;** (Required): The full URL to the package on `pkg.go.dev`.
-*   **[OUTPUT_FILE]** (Optional): The path for the output Markdown file. Defaults to `documentation.md`.
+*   **&lt;PKG_GO_DEV_URL | GITHUB_URL&gt;** (Required): The full URL to the package on `pkg.go.dev` or the GitHub repository URL.
+*   **[OUTPUT_FILE]** (Optional): The path for the output Markdown file. Defaults to a sanitized version of the package name (e.g., `github.com_cinar_indicator_v2.md`).
 
 ### Building
 To create a standalone binary:
@@ -53,7 +55,9 @@ go build -o flatten-go-doc .
 
 ## Logic Flow
 
-1.  **Input:** Takes a `pkg.go.dev` URL.
+1.  **Input:** Takes a `pkg.go.dev` URL or a GitHub URL.
+    *   If a GitHub URL is detected, it is transformed into the corresponding `pkg.go.dev` URL.
+    *   The tool validates the existence of the package on `pkg.go.dev`.
 2.  **Scrape:** 
     *   Visits the URL.
     *   Extracts content from `.UnitReadme` and `.Documentation`.
@@ -62,7 +66,7 @@ go build -o flatten-go-doc .
 4.  **Output:** 
     *   Waits for all requests to complete.
     *   Sorts the pages alphabetically by URL.
-    *   Writes all concatenated content to the specified output file, separated by `---`.
+    *   Writes all concatenated content to the specified output file (or the generated default filename), separated by `---`.
 
 ## Development Conventions
 

@@ -4,6 +4,8 @@
 
 ## Features
 
+-   **GitHub URL Support**: Accepts GitHub repository URLs directly (e.g., `https://github.com/user/repo`) and resolves them to `pkg.go.dev`.
+-   **Smart Defaults**: Automatically generates a sanitized output filename from the package name if not provided.
 -   **Recursive Scraping**: Automatically finds and scrapes sub-packages.
 -   **Markdown Conversion**: Converts documentation and READMEs into clean Markdown.
 -   **Sorted Output**: Organizes documentation alphabetically by package URL.
@@ -33,17 +35,24 @@ go install github.com/igorrius/flatten-go-doc@latest
 
 ## Usage
 
-The tool takes the `pkg.go.dev` URL as the first argument and an optional output file path as the second.
+The tool takes the `pkg.go.dev` URL or a GitHub repository URL as the first argument. An optional output file path can be provided as the second argument.
 
 ```bash
-flatten-go-doc <PKG_GO_DEV_URL> [OUTPUT_FILE]
+flatten-go-doc <PKG_GO_DEV_URL | GITHUB_URL> [OUTPUT_FILE]
 ```
 
 ### Examples
 
-**Basic usage (outputs to `documentation.md`):**
+**Basic usage (outputs to `<package_name_sanitized>.md`):**
 ```bash
 go run . https://pkg.go.dev/github.com/google/go-cmp/cmp
+# Creates: github.com_google_go-cmp_cmp.md
+```
+
+**Using a GitHub URL:**
+```bash
+go run . https://github.com/google/go-cmp
+# Resolves to pkg.go.dev and creates: github.com_google_go-cmp.md
 ```
 
 **Specifying an output file:**
