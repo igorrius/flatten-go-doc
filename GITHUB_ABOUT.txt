@@ -1,0 +1,17 @@
+Description:
+CLI tool and Go library to scrape and flatten pkg.go.dev documentation into a single Markdown file for offline use and LLM context.
+
+Website:
+(Leave empty or link to pkg.go.dev/github.com/igorrius/flatten-go-doc)
+
+Topics (Tags):
+go
+golang
+documentation
+scraper
+markdown
+llm
+cli
+pkg-go-dev
+dev-tools
+context-window
