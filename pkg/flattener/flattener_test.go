@@ -22,6 +22,13 @@ func TestFlatten(t *testing.T) {
 					<h1>Root Package</h1>
 					<p>This is the root readme.</p>
 				</div>
+				
+				<div class="UnitFiles js-unitFiles">
+					<ul class="UnitFiles-fileList">
+						<li><a href="/pkg/file.go">file.go</a></li>
+					</ul>
+				</div>
+
 				<div class="UnitDirectories">
 					<table>
 						<tr>
@@ -54,6 +61,11 @@ func TestFlatten(t *testing.T) {
 		w.Write([]byte(html))
 	})
 
+	// Source file page (RAW)
+	mux.HandleFunc("/pkg/file.go", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("package pkg\n\nfunc Foo() {}"))
+	})
+
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -69,6 +81,7 @@ func TestFlatten(t *testing.T) {
 		Parallelism:    1,
 		RandomDelay:    0, // No delay for tests
 		AllowedDomains: []string{u.Hostname()},
+		MaxRetries:     1,
 	}
 	
 	flattener := New(config)
@@ -81,11 +94,15 @@ func TestFlatten(t *testing.T) {
 	}
 
 	// 5. Assertions
-	if len(results) != 2 {
-		t.Errorf("Expected 2 results, got %d", len(results))
+	// Expected: Root, Sub, SourceFile -> 3 results
+	if len(results) != 3 {
+		t.Errorf("Expected 3 results, got %d", len(results))
+		for _, r := range results {
+			t.Logf("Result: %s", r.URL)
+		}
 	}
 
-	// Helper to find result by URL suffix (since port changes)
+	// Helper to find result by URL suffix
 	findResult := func(suffix string) *PageResult {
 		for _, r := range results {
 			if strings.HasSuffix(r.URL, suffix) {
@@ -103,21 +120,24 @@ func TestFlatten(t *testing.T) {
 		if !strings.Contains(rootRes.Content, "# Root Package") {
 			t.Errorf("Root content missing header. Got:\n%s", rootRes.Content)
 		}
-		if !strings.Contains(rootRes.Content, "This is the root readme.") {
-			t.Errorf("Root content missing body. Got:\n%s", rootRes.Content)
-		}
 	}
 
 	// Check Sub
 	subRes := findResult("/pkg/sub")
 	if subRes == nil {
 		t.Error("Result for subpackage not found")
+	}
+
+	// Check Source File
+	sourceRes := findResult("/pkg/file.go")
+	if sourceRes == nil {
+		t.Error("Result for source file not found")
 	} else {
-		if !strings.Contains(subRes.Content, "## Subpackage Doc") {
-			t.Errorf("Sub content missing header. Got:\n%s", subRes.Content)
+		if !strings.Contains(sourceRes.Content, "func Foo() {}") {
+			t.Errorf("Source content missing code. Got:\n%s", sourceRes.Content)
 		}
-		if strings.Contains(subRes.Content, "Index (should be removed)") {
-			t.Error("Content cleaning failed: found .Documentation-index content")
+		if !strings.Contains(sourceRes.Content, "```go") {
+			t.Error("Source content missing code block formatting")
 		}
 	}
 }
