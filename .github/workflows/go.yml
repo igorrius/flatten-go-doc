@@ -28,7 +28,7 @@ jobs:
       run: go test -v ./...
 
     - name: Upload Binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: flatten-go-doc-binary
         path: flatten-go-doc
